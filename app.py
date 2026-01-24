@@ -103,18 +103,18 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
 ```
 
-Click **"Commit changes"**
+6. Click **"Commit changes"**
+7. Click **"Commit changes"** again
 
 ---
 
-3. **Second file - Click "Add file" → "Create new file"**
+## Then Redeploy in Dokploy
 
-Name it: `requirements.txt`
-
-Paste this:
+1. Go back to Dokploy
+2. Click **"Redeploy"** or **"Deploy"** button
+3. Wait for the build to complete
+4. Check the logs - you should now see:
 ```
-Flask==3.0.0
-openpyxl==3.1.2
-requests==2.31.0
-Pillow==10.1.0
-gunicorn==21.2.0
+[INFO] Starting gunicorn 21.2.0
+[INFO] Listening at: http://0.0.0.0:5000
+[INFO] Booting worker with pid: 7

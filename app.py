@@ -101,20 +101,3 @@ def create_xlsx():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-```
-
-6. Click **"Commit changes"**
-7. Click **"Commit changes"** again
-
----
-
-## Then Redeploy in Dokploy
-
-1. Go back to Dokploy
-2. Click **"Redeploy"** or **"Deploy"** button
-3. Wait for the build to complete
-4. Check the logs - you should now see:
-```
-[INFO] Starting gunicorn 21.2.0
-[INFO] Listening at: http://0.0.0.0:5000
-[INFO] Booting worker with pid: 7

@@ -45,12 +45,18 @@ def create_xlsx():
         ws.column_dimensions['H'].width = 25
         ws.column_dimensions['I'].width = 40
         
-        headers = ['ID', 'Category', 'Title Raw', 'Title 1', 'Title 2', 'Title 3', 'Design Type', 'Thumbnail', 'Name Base64']
-        ws.append(headers)
+        # Add headers using cell() method
+        ws.cell(row=1, column=1, value='ID')
+        ws.cell(row=1, column=2, value='Category')
+        ws.cell(row=1, column=3, value='Title Raw')
+        ws.cell(row=1, column=4, value='Title 1')
+        ws.cell(row=1, column=5, value='Title 2')
+        ws.cell(row=1, column=6, value='Title 3')
+        ws.cell(row=1, column=7, value='Design Type')
+        ws.cell(row=1, column=8, value='Thumbnail')
+        ws.cell(row=1, column=9, value='Name Base64')
         
         for idx, item in enumerate(items, start=2):
-            # IMPORTANT: Don't include the Thumbnail column in the row data
-            # We'll leave column H empty so Canva recognizes it as image column
             ws.cell(row=idx, column=1, value=item.get('id', ''))
             ws.cell(row=idx, column=2, value=item.get('category_name', ''))
             ws.cell(row=idx, column=3, value=item.get('title_raw', ''))

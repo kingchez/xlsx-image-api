@@ -1,6 +1,7 @@
 from flask import Flask, request, send_file, jsonify
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.cell.cell import Cell
 import requests
 from io import BytesIO
 import tempfile
@@ -31,10 +32,12 @@ def create_xlsx():
         if not items:
             return jsonify({"error": "No items provided"}), 400
         
-        wb = Workbook()
+        # Create workbook with write_only=False to ensure proper cell handling
+        wb = Workbook(write_only=False)
         ws = wb.active
         ws.title = "Thumbnails"
         
+        # Set column widths
         ws.column_dimensions['A'].width = 40
         ws.column_dimensions['B'].width = 20
         ws.column_dimensions['C'].width = 50
@@ -45,17 +48,15 @@ def create_xlsx():
         ws.column_dimensions['H'].width = 25
         ws.column_dimensions['I'].width = 40
         
-        # Add headers using cell() method
-        ws.cell(row=1, column=1, value='ID')
-        ws.cell(row=1, column=2, value='Category')
-        ws.cell(row=1, column=3, value='Title Raw')
-        ws.cell(row=1, column=4, value='Title 1')
-        ws.cell(row=1, column=5, value='Title 2')
-        ws.cell(row=1, column=6, value='Title 3')
-        ws.cell(row=1, column=7, value='Design Type')
-        ws.cell(row=1, column=8, value='Thumbnail')
-        ws.cell(row=1, column=9, value='Name Base64')
+        # Add headers row
+        headers = ['ID', 'Category', 'Title Raw', 'Title 1', 'Title 2', 'Title 3', 'Design Type', 'Thumbnail', 'Name Base64']
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            # Force the cell to use 's' type (shared string) instead of inlineStr
+            # by explicitly setting data_type
+            cell.data_type = 's'
         
+        # Add data rows
         for idx, item in enumerate(items, start=2):
             ws.cell(row=idx, column=1, value=item.get('id', ''))
             ws.cell(row=idx, column=2, value=item.get('category_name', ''))
@@ -64,7 +65,10 @@ def create_xlsx():
             ws.cell(row=idx, column=5, value=item.get('title2', ''))
             ws.cell(row=idx, column=6, value=item.get('title3', ''))
             ws.cell(row=idx, column=7, value=item.get('design_type', ''))
-            # Column 8 (H) - SKIP - leave empty for images
+            # Column 8 (H) - Create empty cell with style
+            empty_cell = ws.cell(row=idx, column=8, value=None)
+            # Force no data type on empty cells
+            empty_cell.data_type = 'n'  # numeric type for empty
             ws.cell(row=idx, column=9, value=item.get('name_base64', ''))
             
             # Download and add image
@@ -83,6 +87,7 @@ def create_xlsx():
                 except Exception as e:
                     print(f"Error adding image for row {idx}: {e}")
         
+        # Save file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as temp_file:
             wb.save(temp_file.name)
             temp_path = temp_file.name

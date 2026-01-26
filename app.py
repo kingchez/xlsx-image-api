@@ -49,18 +49,19 @@ def create_xlsx():
         ws.append(headers)
         
         for idx, item in enumerate(items, start=2):
-            ws.append([
-                item.get('id', ''),
-                item.get('category_name', ''),
-                item.get('title_raw', ''),
-                item.get('title1', ''),
-                item.get('title2', ''),
-                item.get('title3', ''),
-                item.get('design_type', ''),
-                '',
-                item.get('name_base64', '')
-            ])
+            # IMPORTANT: Don't include the Thumbnail column in the row data
+            # We'll leave column H empty so Canva recognizes it as image column
+            ws.cell(row=idx, column=1, value=item.get('id', ''))
+            ws.cell(row=idx, column=2, value=item.get('category_name', ''))
+            ws.cell(row=idx, column=3, value=item.get('title_raw', ''))
+            ws.cell(row=idx, column=4, value=item.get('title1', ''))
+            ws.cell(row=idx, column=5, value=item.get('title2', ''))
+            ws.cell(row=idx, column=6, value=item.get('title3', ''))
+            ws.cell(row=idx, column=7, value=item.get('design_type', ''))
+            # Column 8 (H) - SKIP - leave empty for images
+            ws.cell(row=idx, column=9, value=item.get('name_base64', ''))
             
+            # Download and add image
             thumbnail_url = item.get('thumbnail_url', '')
             if thumbnail_url:
                 try:

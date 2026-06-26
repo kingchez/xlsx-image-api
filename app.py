@@ -28,24 +28,52 @@ def health():
 
 def clean_image_url(url):
     """
-    Only strips CDN format-forcing parameters (f_avif, f_webp) if they exist.
-    Leaves all other URLs completely untouched.
+    Strips CDN format-forcing directives from URLs.
+    Handles two cases:
+      1. f_avif as a standalone query param:  ?c=original&f_avif
+      2. f_avif embedded inside a param value: ?q=w_1202,c_fill/f_avif  ← CNN style
+    Leaves URLs with no format directives completely untouched.
     """
     try:
-        # Only touch the URL if it actually contains f_ format params
-        if 'f_avif' not in url and 'f_webp' not in url and 'f_auto' not in url:
-            return url  # return original completely untouched
+        FORMAT_DIRECTIVES = ['f_avif', 'f_webp', 'f_auto', 'f_jpg', 'f_png']
+
+        # Quick check — if none of these exist in the URL, return as-is
+        if not any(d in url for d in FORMAT_DIRECTIVES):
+            return url
 
         parsed = urlparse(url)
-        clean_query = '&'.join(
-            p for p in parsed.query.split('&')
-            if not p.startswith('f_') and p != ''
-        )
+        params = parsed.query.split('&')
+        cleaned_params = []
+
+        for param in params:
+            if not param:
+                continue
+            # Case 1: param itself is a format directive e.g. f_avif
+            if any(param.startswith(d) for d in FORMAT_DIRECTIVES):
+                print(f"Removed format param: {param}")
+                continue
+            # Case 2: format directive is embedded inside param value e.g. q=w_1202,c_fill/f_avif
+            if '/' in param:
+                # Strip everything from /f_ onwards inside the value
+                parts = param.split('/')
+                clean_parts = []
+                for part in parts:
+                    if any(part.startswith(d) for d in FORMAT_DIRECTIVES):
+                        print(f"Removed embedded format directive: {part}")
+                        break  # drop this and everything after it
+                    clean_parts.append(part)
+                param = '/'.join(clean_parts)
+            if param:
+                cleaned_params.append(param)
+
+        clean_query = '&'.join(cleaned_params)
         cleaned = urlunparse(parsed._replace(query=clean_query))
-        print(f"Cleaned CDN URL: {url} → {cleaned}")
+        print(f"Cleaned CDN URL:\n  Before: {url}\n  After:  {cleaned}")
         return cleaned
-    except Exception:
-        return url  # if anything goes wrong, always return original
+
+    except Exception as e:
+        print(f"URL cleaning failed ({e}), using original: {url}")
+        return url
 
 
 def download_and_convert_image(url):

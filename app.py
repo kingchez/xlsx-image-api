@@ -28,80 +28,74 @@ def health():
 
 def clean_image_url(url):
     """
-    Strips CDN format-forcing parameters like f_avif, f_webp from URLs.
-    e.g. CNN, Cloudinary, Imgix URLs that force a specific output format.
-    This lets us download the original image instead of a converted version.
+    Only strips CDN format-forcing parameters (f_avif, f_webp) if they exist.
+    Leaves all other URLs completely untouched.
     """
     try:
+        # Only touch the URL if it actually contains f_ format params
+        if 'f_avif' not in url and 'f_webp' not in url and 'f_auto' not in url:
+            return url  # return original completely untouched
+
         parsed = urlparse(url)
-        # Remove f_* format directives from query string (e.g. f_avif, f_webp)
         clean_query = '&'.join(
             p for p in parsed.query.split('&')
             if not p.startswith('f_') and p != ''
         )
-        return urlunparse(parsed._replace(query=clean_query))
+        cleaned = urlunparse(parsed._replace(query=clean_query))
+        print(f"Cleaned CDN URL: {url} → {cleaned}")
+        return cleaned
     except Exception:
-        return url  # if anything goes wrong, return original URL
+        return url  # if anything goes wrong, always return original
 
 
 def download_and_convert_image(url):
     """
     Downloads an image from any URL and converts it to PNG automatically.
-    Handles ALL formats including:
-      - Common:   .jpg, .jpeg, .png, .gif
-      - Modern:   .webp, .avif, .heic
-      - Other:    .bmp, .tiff, .ico, .svg (raster only)
-      - CDN URLs: CNN, Cloudinary, Imgix with format parameters
+    Handles all formats: jpg, png, gif, webp, avif, heic, bmp, tiff, etc.
     Returns a BytesIO PNG buffer, or None if anything fails.
     """
     try:
-        # Step 1 — Clean the URL (strip format-forcing CDN params)
+        # Step 1 — Only clean URL if it has CDN format params, otherwise use as-is
         clean_url = clean_image_url(url)
-        if clean_url != url:
-            print(f"Cleaned URL: {url} → {clean_url}")
 
-        # Step 2 — Download with browser-like headers (some servers block bots)
-        headers = {
+        # Step 2 — Try downloading with simple headers first (works for most sites)
+        simple_headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
-        img_response = requests.get(clean_url, timeout=15, headers=headers)
+        img_response = requests.get(clean_url, timeout=15, headers=simple_headers)
 
-        # Step 3 — If cleaned URL fails, try the original URL as fallback
-        if img_response.status_code != 200:
+        # Step 3 — If that fails and URL was cleaned, try the original URL as fallback
+        if img_response.status_code != 200 and clean_url != url:
             print(f"Cleaned URL failed ({img_response.status_code}), trying original...")
-            img_response = requests.get(url, timeout=15, headers=headers)
+            img_response = requests.get(url, timeout=15, headers=simple_headers)
 
         if img_response.status_code != 200:
             print(f"Failed to download image: HTTP {img_response.status_code} — {url}")
             return None
 
-        # Step 4 — Open with Pillow (auto-detects format, handles all types)
+        # Step 4 — Open with Pillow (auto-detects format regardless of extension)
         img_data = BytesIO(img_response.content)
         pil_img = PILImage.open(img_data)
 
-        print(f"Image format detected: {pil_img.format} | Mode: {pil_img.mode} | Size: {pil_img.size}")
+        print(f"Image format: {pil_img.format} | Mode: {pil_img.mode} | Size: {pil_img.size}")
 
-        # Step 5 — Convert to RGB (handles transparency, palette, CMYK, etc.)
+        # Step 5 — Convert any mode to clean RGB
         if pil_img.mode == 'P':
-            # Palette mode — convert to RGBA first to preserve any transparency
             pil_img = pil_img.convert('RGBA')
 
         if pil_img.mode in ('RGBA', 'LA'):
-            # Has transparency — flatten onto white background
+            # Flatten transparency onto white background
             background = PILImage.new('RGB', pil_img.size, (255, 255, 255))
             background.paste(pil_img, mask=pil_img.split()[-1])
             pil_img = background
         elif pil_img.mode == 'CMYK':
-            # CMYK (some JPEGs) — convert to RGB
             pil_img = pil_img.convert('RGB')
         elif pil_img.mode != 'RGB':
-            # Any other mode (L, YCbCr, HSV, etc.) — convert to RGB
             pil_img = pil_img.convert('RGB')
 
-        # Step 6 — Save as PNG into memory (openpyxl always gets a clean PNG)
+        # Step 6 — Save as PNG into memory
         png_buffer = BytesIO()
         pil_img.save(png_buffer, format='PNG', optimize=True)
         png_buffer.seek(0)
